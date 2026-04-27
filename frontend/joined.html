@@ -10,34 +10,41 @@
   }
 
   body {
-    font-family: Arial, sans-serif;
-    background: #eef2f7;
+    font-family: "Segoe UI", Arial, sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 30%),
+      linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
     margin: 0;
     color: #111827;
   }
 
   header {
-    background: linear-gradient(135deg, #111827, #1e3a8a);
+    background:
+      linear-gradient(135deg, rgba(17, 24, 39, 0.96), rgba(30, 58, 138, 0.96)),
+      radial-gradient(circle at top right, rgba(96, 165, 250, 0.45), transparent 35%);
     color: white;
-    padding: 45px 20px;
+    padding: 56px 20px 64px;
     text-align: center;
   }
 
   header h1 {
     margin: 0;
-    font-size: 42px;
+    font-size: 48px;
+    font-weight: 800;
+    letter-spacing: -1px;
   }
 
   header p {
-    margin-top: 10px;
+    margin: 12px auto 0;
     font-size: 18px;
     color: #dbeafe;
+    max-width: 650px;
   }
 
   main {
-    max-width: 1100px;
-    margin: 30px auto;
-    padding: 20px;
+    max-width: 1120px;
+    margin: -28px auto 40px;
+    padding: 0 20px 24px;
   }
 
   .controls {
@@ -48,66 +55,139 @@
     align-items: center;
   }
 
+  .controls:first-child {
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(10px);
+    padding: 14px;
+    border-radius: 18px;
+    box-shadow: 0 14px 35px rgba(15, 23, 42, 0.14);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+  }
+
   .box,
   .event-card {
-    background: white;
-    padding: 24px;
-    margin-bottom: 18px;
-    border-radius: 16px;
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.96);
+    padding: 26px;
+    margin-bottom: 20px;
+    border-radius: 20px;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
     border: 1px solid #e5e7eb;
   }
 
+  .box h2 {
+    margin-top: 0;
+    margin-bottom: 14px;
+    font-size: 23px;
+    color: #0f172a;
+  }
+
+  .box:first-of-type {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #bfdbfe;
+    background:
+      linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
+  }
+
+  .box:first-of-type::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 6px;
+    background: linear-gradient(180deg, #2563eb, #60a5fa);
+  }
+
+  .g_id_signin {
+    margin: 12px 0 14px;
+  }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 14px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #334155;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.24);
+  }
+
+  .status::before {
+    content: "●";
+    color: #ef4444;
+    font-size: 12px;
+  }
+
   .event-card {
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
   }
 
   .event-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    transform: translateY(-4px);
+    box-shadow: 0 18px 38px rgba(15, 23, 42, 0.13);
+    border-color: #bfdbfe;
   }
 
   input,
   select,
   textarea {
-    padding: 12px;
+    padding: 13px 14px;
     font-size: 15px;
     border: 1px solid #cbd5e1;
-    border-radius: 10px;
+    border-radius: 12px;
     outline: none;
     background: white;
+    color: #111827;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #94a3b8;
   }
 
   input:focus,
   select:focus,
   textarea:focus {
     border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
   }
 
   textarea {
     width: 100%;
-    min-height: 90px;
+    min-height: 100px;
     resize: vertical;
   }
 
   button {
-    padding: 12px 16px;
+    padding: 12px 17px;
     font-size: 15px;
     background: #2563eb;
     color: white;
     border: none;
     cursor: pointer;
-    border-radius: 10px;
-    font-weight: bold;
+    border-radius: 12px;
+    font-weight: 700;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22);
+    transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
   }
 
   button:hover {
     background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.28);
+  }
+
+  button:active {
+    transform: translateY(0);
   }
 
   .controls button {
     background: #111827;
+    box-shadow: 0 8px 18px rgba(17, 24, 39, 0.18);
   }
 
   .controls button:hover {
@@ -118,25 +198,30 @@
     display: inline-block;
     background: #dbeafe;
     color: #1e40af;
-    padding: 6px 12px;
+    padding: 7px 12px;
     border-radius: 999px;
-    font-size: 13px;
-    font-weight: bold;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
   }
 
   .event-card h2 {
-    margin-top: 12px;
+    margin-top: 14px;
     margin-bottom: 12px;
-    font-size: 26px;
+    font-size: 28px;
+    color: #0f172a;
   }
 
-  .event-card p {
-    line-height: 1.5;
+  .event-card p,
+  .box p {
+    line-height: 1.55;
+    color: #334155;
   }
 
-  .status {
-    font-weight: bold;
-    color: #1f2937;
+  .event-card strong,
+  .box strong {
+    color: #0f172a;
   }
 
   .create-form {
@@ -147,15 +232,29 @@
   }
 
   #events,
-  #joinedEvents {
+  #joinedEvents,
+  #participants,
+  #messages {
     margin-top: 20px;
+  }
+
+  #events > p,
+  #joinedEvents > p,
+  #participants > p,
+  #messages > p {
+    background: white;
+    padding: 18px;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    color: #475569;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
   }
 
   .message {
     background: #f8fafc;
     border: 1px solid #e5e7eb;
-    padding: 14px;
-    border-radius: 12px;
+    padding: 16px;
+    border-radius: 14px;
     margin-bottom: 12px;
   }
 
@@ -167,9 +266,40 @@
     color: #64748b;
   }
 
+  ul {
+    background: #f8fafc;
+    padding: 18px 18px 18px 36px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+  }
+
+  li {
+    margin-bottom: 8px;
+    color: #334155;
+  }
+
   @media (max-width: 700px) {
+    header {
+      padding: 40px 18px 54px;
+    }
+
     header h1 {
-      font-size: 32px;
+      font-size: 34px;
+    }
+
+    header p {
+      font-size: 16px;
+    }
+
+    main {
+      margin-top: -20px;
+      padding: 0 14px 22px;
+    }
+
+    .box,
+    .event-card {
+      padding: 20px;
+      border-radius: 16px;
     }
 
     .create-form {
