@@ -1,4 +1,5 @@
-# 🏆 GameFinder: Sports Event Finder
+# GameFinder: Sports Event Finder
+live application: https://d6il0du8e0i9f.cloudfront.net/index.html 
 
 A serverless cloud-based event discovery platform that allows users to find, create, and interact with nearby events.
 
