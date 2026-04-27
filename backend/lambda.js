@@ -11,13 +11,14 @@ const client = new DynamoDBClient({ region: "us-east-1" });
 
 const EVENTS_TABLE = "GameFinderEvents";
 const MESSAGES_TABLE = "GameFinderMessages";
+
 const GOOGLE_CLIENT_ID = "806474530135-eu9tcf85pn9t8k92c34uir3u6gvmoaka.apps.googleusercontent.com";
 
 function response(statusCode, body) {
   return {
     statusCode,
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(body)
   };
@@ -43,10 +44,10 @@ function formatEvent(item) {
 
 function formatMessage(item) {
   return {
-    eventId: item.eventId.S,
-    createdAt: Number(item.createdAt.N),
-    userEmail: item.userEmail.S,
-    message: item.message.S
+    eventId: item.eventId?.S || "",
+    createdAt: item.createdAt ? Number(item.createdAt.N) : null,
+    userEmail: item.userEmail?.S || "",
+    message: item.message?.S || ""
   };
 }
 
@@ -106,218 +107,222 @@ async function geocodeLocation(city, state) {
 }
 
 exports.handler = async (event) => {
-  const path = event.rawPath || event.path || "/";
-  const method = event.requestContext?.http?.method || event.httpMethod || "GET";
+  try {
+    const path = event.rawPath || event.path || "/";
+    const method = event.requestContext?.http?.method || event.httpMethod || "GET";
 
-  if (method === "OPTIONS") {
-    return response(204, {});
-  }
-
-  // GET all events
-  if (method === "GET" && path === "/events") {
-    const data = await client.send(new ScanCommand({
-      TableName: EVENTS_TABLE
-    }));
-
-    return response(200, data.Items.map(formatEvent));
-  }
-
-  // GET event messages
-  if (method === "GET" && path.startsWith("/events/") && path.endsWith("/messages")) {
-    const eventId = path.split("/")[2];
-
-    const data = await client.send(new QueryCommand({
-      TableName: MESSAGES_TABLE,
-      KeyConditionExpression: "eventId = :eventId",
-      ExpressionAttributeValues: {
-        ":eventId": { S: eventId }
-      },
-      ScanIndexForward: true
-    }));
-
-    return response(200, data.Items.map(formatMessage));
-  }
-
-  // GET single event
-  if (
-    method === "GET" &&
-    path.startsWith("/events/") &&
-    !path.endsWith("/messages")
-  ) {
-    const id = path.split("/")[2];
-
-    const data = await client.send(new GetItemCommand({
-      TableName: EVENTS_TABLE,
-      Key: {
-        id: { N: id }
-      }
-    }));
-
-    if (!data.Item) {
-      return response(404, { message: "Event not found" });
+    if (method === "OPTIONS") {
+      return response(204, {});
     }
 
-    return response(200, formatEvent(data.Item));
-  }
+    if (method === "GET" && path === "/events") {
+      const data = await client.send(new ScanCommand({
+        TableName: EVENTS_TABLE
+      }));
 
-  // CREATE event
-  if (method === "POST" && path === "/events") {
-    const user = await verifyGoogleToken(event);
+      const events = (data.Items || []).map(formatEvent);
 
-    if (!user) {
-      return response(401, {
-        message: "Unauthorized: invalid or missing Google OIDC token"
+      return response(200, events);
+    }
+
+    if (method === "GET" && path.startsWith("/events/") && !path.endsWith("/messages")) {
+      const id = path.split("/")[2];
+
+      const data = await client.send(new GetItemCommand({
+        TableName: EVENTS_TABLE,
+        Key: {
+          id: { N: id }
+        }
+      }));
+
+      if (!data.Item) {
+        return response(404, { message: "Event not found" });
+      }
+
+      return response(200, formatEvent(data.Item));
+    }
+
+    if (method === "POST" && path === "/events") {
+      const user = await verifyGoogleToken(event);
+
+      if (!user) {
+        return response(401, {
+          message: "Unauthorized: invalid or missing Google OIDC token"
+        });
+      }
+
+      const body = JSON.parse(event.body || "{}");
+
+      const requiredFields = [
+        "title",
+        "category",
+        "city",
+        "state",
+        "date",
+        "time",
+        "description"
+      ];
+
+      const missingFields = requiredFields.filter(field =>
+        body[field] === undefined ||
+        body[field] === null ||
+        body[field] === ""
+      );
+
+      if (missingFields.length > 0) {
+        return response(400, {
+          message: "Missing required fields",
+          missingFields
+        });
+      }
+
+      const coordinates = await geocodeLocation(body.city, body.state);
+      const id = Date.now();
+
+      await client.send(new PutItemCommand({
+        TableName: EVENTS_TABLE,
+        Item: {
+          id: { N: String(id) },
+          title: { S: body.title },
+          category: { S: body.category },
+          city: { S: body.city },
+          state: { S: body.state },
+          location: { S: `${body.city}, ${body.state}` },
+          date: { S: body.date },
+          time: { S: body.time },
+          description: { S: body.description },
+          latitude: { N: String(coordinates.latitude) },
+          longitude: { N: String(coordinates.longitude) },
+          createdBy: { S: user.email },
+          joinedBy: { SS: [user.email] }
+        }
+      }));
+
+      return response(201, {
+        message: "Event created successfully",
+        id,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude
       });
     }
 
-    const body = JSON.parse(event.body || "{}");
+    if (method === "POST" && path.startsWith("/events/") && path.endsWith("/join")) {
+      const user = await verifyGoogleToken(event);
 
-    const requiredFields = [
-      "title",
-      "category",
-      "city",
-      "state",
-      "date",
-      "time",
-      "description"
-    ];
+      if (!user) {
+        return response(401, {
+          message: "Unauthorized: invalid or missing Google OIDC token"
+        });
+      }
 
-    const missingFields = requiredFields.filter(field =>
-      body[field] === undefined ||
-      body[field] === null ||
-      body[field] === ""
-    );
+      const id = path.split("/")[2];
 
-    if (missingFields.length > 0) {
-      return response(400, {
-        message: "Missing required fields",
-        missingFields
+      await client.send(new UpdateItemCommand({
+        TableName: EVENTS_TABLE,
+        Key: {
+          id: { N: id }
+        },
+        UpdateExpression: "ADD joinedBy :user",
+        ExpressionAttributeValues: {
+          ":user": { SS: [user.email] }
+        }
+      }));
+
+      return response(200, {
+        message: "Joined event successfully"
       });
     }
 
-    const coordinates = await geocodeLocation(body.city, body.state);
-    const id = Date.now();
+    if (method === "POST" && path.startsWith("/events/") && path.endsWith("/leave")) {
+  const user = await verifyGoogleToken(event);
 
-    await client.send(new PutItemCommand({
-      TableName: EVENTS_TABLE,
-      Item: {
-        id: { N: String(id) },
-        title: { S: body.title },
-        category: { S: body.category },
-        city: { S: body.city },
-        state: { S: body.state },
-        location: { S: `${body.city}, ${body.state}` },
-        date: { S: body.date },
-        time: { S: body.time },
-        description: { S: body.description },
-        latitude: { N: String(coordinates.latitude) },
-        longitude: { N: String(coordinates.longitude) },
-        createdBy: { S: user.email },
-        joinedBy: { SS: [user.email] }
-      }
-    }));
-
-    return response(201, {
-      message: "Event created successfully",
-      eventId: id,
-      latitude: coordinates.latitude,
-      longitude: coordinates.longitude
+  if (!user) {
+    return response(401, {
+      message: "Unauthorized: invalid or missing Google OIDC token"
     });
   }
 
-  // JOIN event
-  if (method === "POST" && path.startsWith("/events/") && path.endsWith("/join")) {
-    const user = await verifyGoogleToken(event);
+  const id = path.split("/")[2];
 
-    if (!user) {
-      return response(401, {
-        message: "Unauthorized: invalid or missing Google OIDC token"
-      });
+  await client.send(new UpdateItemCommand({
+    TableName: EVENTS_TABLE,
+    Key: {
+      id: { N: id }
+    },
+    UpdateExpression: "DELETE joinedBy :user",
+    ExpressionAttributeValues: {
+      ":user": { SS: [user.email] }
     }
-
-    const id = path.split("/")[2];
-
-    await client.send(new UpdateItemCommand({
-      TableName: EVENTS_TABLE,
-      Key: {
-        id: { N: id }
-      },
-      UpdateExpression: "ADD joinedBy :user",
-      ExpressionAttributeValues: {
-        ":user": { SS: [user.email] }
-      }
-    }));
-
-    return response(200, {
-      message: "Joined event successfully"
-    });
-  }
-
-  // LEAVE event
-  if (method === "POST" && path.startsWith("/events/") && path.endsWith("/leave")) {
-    const user = await verifyGoogleToken(event);
-
-    if (!user) {
-      return response(401, {
-        message: "Unauthorized: invalid or missing Google OIDC token"
-      });
-    }
-
-    const id = path.split("/")[2];
-
-    await client.send(new UpdateItemCommand({
-      TableName: EVENTS_TABLE,
-      Key: {
-        id: { N: id }
-      },
-      UpdateExpression: "DELETE joinedBy :user",
-      ExpressionAttributeValues: {
-        ":user": { SS: [user.email] }
-      }
-    }));
-
-    return response(200, {
-      message: "Left event successfully"
-    });
-  }
-
-  // POST chat message
-  if (method === "POST" && path.startsWith("/events/") && path.endsWith("/messages")) {
-    const user = await verifyGoogleToken(event);
-
-    if (!user) {
-      return response(401, {
-        message: "Unauthorized: invalid or missing Google OIDC token"
-      });
-    }
-
-    const eventId = path.split("/")[2];
-    const body = JSON.parse(event.body || "{}");
-
-    if (!body.message || body.message.trim() === "") {
-      return response(400, {
-        message: "Message cannot be empty"
-      });
-    }
-
-    const createdAt = Date.now();
-
-    await client.send(new PutItemCommand({
-      TableName: MESSAGES_TABLE,
-      Item: {
-        eventId: { S: eventId },
-        createdAt: { N: String(createdAt) },
-        userEmail: { S: user.email },
-        message: { S: body.message.trim() }
-      }
-    }));
-
-    return response(201, {
-      message: "Message sent"
-    });
-  }
+  }));
 
   return response(200, {
-    message: "GameFinder secure DynamoDB API running"
+    message: "Left event successfully"
   });
+}
+
+    if (method === "GET" && path.startsWith("/events/") && path.endsWith("/messages")) {
+      const eventId = path.split("/")[2];
+
+      const data = await client.send(new QueryCommand({
+        TableName: MESSAGES_TABLE,
+        KeyConditionExpression: "eventID = :eventID",
+        ExpressionAttributeValues: {
+          ":eventID": { S: eventId }
+        }
+      }));
+
+      const messages = (data.Items || []).map(formatMessage);
+
+      return response(200, messages);
+    }
+
+    if (method === "POST" && path.startsWith("/events/") && path.endsWith("/messages")) {
+      const user = await verifyGoogleToken(event);
+
+      if (!user) {
+        return response(401, {
+          message: "Unauthorized: invalid or missing Google OIDC token"
+        });
+      }
+
+      const eventId = path.split("/")[2];
+      const body = JSON.parse(event.body || "{}");
+
+      if (!body.message || body.message.trim() === "") {
+        return response(400, {
+          message: "Message is required"
+        });
+      }
+
+      const createdAt = Date.now();
+
+      await client.send(new PutItemCommand({
+        TableName: MESSAGES_TABLE,
+        Item: {
+          eventID: { S: eventId },
+          createdAt: { N: String(createdAt) },
+          userEmail: { S: user.email },
+          message: { S: body.message.trim() }
+        }
+      }));
+
+      return response(201, {
+        message: "Message sent",
+        eventId,
+        createdAt
+      });
+    }
+
+    return response(200, {
+      message: "GameFinder secure DynamoDB API with events and messages running"
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    return response(500, {
+      message: "Server error",
+      error: error.message
+    });
+  }
 };
