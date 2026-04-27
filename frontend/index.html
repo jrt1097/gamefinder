@@ -199,14 +199,12 @@
 
 <main>
 
-  <!-- NAVIGATION -->
   <div class="controls">
     <button onclick="goTo('index.html')">All Events</button>
     <button onclick="goTo('joined.html')">My Joined Events</button>
     <button onclick="goTo('create.html')">Create Event</button>
   </div>
 
-  <!-- LOGIN -->
   <div class="box">
     <h2>Login</h2>
 
@@ -226,14 +224,12 @@
     <button onclick="logout()">Logout</button>
   </div>
 
-  <!-- LOCATION -->
   <div class="box">
     <h2>Nearby Events</h2>
     <button onclick="getUserLocation()">Use My Location</button>
     <p id="locationStatus">Location not enabled.</p>
   </div>
 
-  <!-- FILTERS -->
   <div class="controls">
     <input id="searchInput" type="text" placeholder="Search events...">
 
@@ -254,7 +250,6 @@
     <button onclick="loadEvents()">Search</button>
   </div>
 
-  <!-- EVENTS -->
   <div id="events"></div>
 
 </main>
@@ -280,12 +275,14 @@ function handleCredentialResponse(response) {
   idToken = response.credential;
   localStorage.setItem("gamefinder_token", idToken);
   document.getElementById("userStatus").innerText = "Signed in with Google";
+  loadEvents();
 }
 
 function logout() {
   idToken = null;
   localStorage.removeItem("gamefinder_token");
   document.getElementById("userStatus").innerText = "Not signed in";
+  loadEvents();
 }
 
 function getUserLocation() {
@@ -320,6 +317,19 @@ function viewEvent(id) {
   window.location.href = `event.html?id=${id}`;
 }
 
+function getUserEmailFromToken() {
+  if (!idToken) {
+    return null;
+  }
+
+  try {
+    const payload = JSON.parse(atob(idToken.split(".")[1]));
+    return payload.email;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function loadEvents() {
   const container = document.getElementById("events");
   container.innerHTML = "<p>Loading events...</p>";
@@ -332,7 +342,6 @@ async function loadEvents() {
         <div class="box">
           <h2>Events temporarily unavailable</h2>
           <p>The frontend is still available through CloudFront, but the backend API is currently failing.</p>
-          <p>This demonstrates graceful degradation during a simulated reliability test.</p>
         </div>
       `;
       return;
@@ -343,6 +352,7 @@ async function loadEvents() {
     const search = document.getElementById("searchInput").value.toLowerCase();
     const category = document.getElementById("categorySelect").value;
     const maxDistance = Number(document.getElementById("distanceSelect").value);
+    const userEmail = getUserEmailFromToken();
 
     container.innerHTML = "";
 
@@ -370,6 +380,11 @@ async function loadEvents() {
 
       if (category !== "All" && event.category !== category) return;
 
+      const isJoined =
+        userEmail &&
+        event.joinedBy &&
+        event.joinedBy.includes(userEmail);
+
       container.innerHTML += `
         <div class="event-card">
           <span class="category">${event.category}</span>
@@ -380,8 +395,12 @@ async function loadEvents() {
           <p><strong>Time:</strong> ${event.time}</p>
           <p>${event.description}</p>
 
-          <button onclick="joinEvent(${event.id})">Join Event</button>
-          <button onclick="leaveEvent(${event.id})">Leave Event</button>
+          ${
+            isJoined
+              ? `<button onclick="leaveEvent(${event.id})">Leave Event</button>`
+              : `<button onclick="joinEvent(${event.id})">Join Event</button>`
+          }
+
           <button onclick="viewEvent(${event.id})">View Event</button>
         </div>
       `;
@@ -396,7 +415,6 @@ async function loadEvents() {
       <div class="box">
         <h2>Backend unavailable</h2>
         <p>The page still loaded from CloudFront, but the API could not be reached.</p>
-        <p>This is a graceful failure instead of a full app crash.</p>
       </div>
     `;
   }

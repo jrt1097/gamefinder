@@ -253,6 +253,27 @@ exports.handler = async (event) => {
 
       const id = path.split("/")[2];
 
+      const existingEvent = await client.send(new GetItemCommand({
+        TableName: EVENTS_TABLE,
+        Key: {
+          id: { N: id }
+        }
+      }));
+
+      if (!existingEvent.Item) {
+        return response(404, {
+          message: "Event not found"
+        });
+      }
+
+      const joinedBy = existingEvent.Item.joinedBy?.SS || [];
+
+      if (!joinedBy.includes(user.email)) {
+        return response(400, {
+          message: "You cannot leave an event you have not joined."
+        });
+      }
+
       await client.send(new UpdateItemCommand({
         TableName: EVENTS_TABLE,
         Key: {
