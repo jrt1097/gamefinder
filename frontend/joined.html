@@ -306,6 +306,8 @@
               <p><strong>Date:</strong> ${event.date}</p>
               <p><strong>Time:</strong> ${event.time}</p>
               <p>${event.description}</p>
+              <button onclick="leaveEvent(${event.id})">Leave Event</button>
+              <button onclick="viewEvent(${event.id})">View Event</button>
             </div>
           `;
         });
@@ -315,6 +317,34 @@
           "<p>Could not load joined events.</p>";
       }
     }
+
+    async function leaveEvent(id) {
+  if (!idToken) {
+    alert("Sign in first");
+    return;
+  }
+
+  const response = await fetch(`${API_URL}/events/${id}/leave`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${idToken}`
+    }
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    alert(result.message || "Could not leave event.");
+    return;
+  }
+
+  alert("Left event successfully.");
+  loadJoinedEvents();
+}
+
+function viewEvent(id) {
+  window.location.href = `event.html?id=${id}`;
+}
   </script>
 </body>
 </html>

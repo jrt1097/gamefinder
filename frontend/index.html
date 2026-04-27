@@ -366,6 +366,7 @@ async function loadEvents() {
         <p>${event.description}</p>
 
         <button onclick="joinEvent(${event.id})">Join Event</button>
+        <button onclick="leaveEvent(${event.id})">Leave Event</button>
         <button onclick="viewEvent(${event.id})">View Event</button>
       </div>
     `;
@@ -386,6 +387,30 @@ async function joinEvent(id) {
   });
 
   alert("Joined event");
+  loadEvents();
+}
+
+async function leaveEvent(id) {
+  if (!idToken) {
+    alert("Sign in first");
+    return;
+  }
+
+  const response = await fetch(`${API_URL}/events/${id}/leave`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${idToken}`
+    }
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    alert(result.message || "Could not leave event.");
+    return;
+  }
+
+  alert("Left event successfully.");
   loadEvents();
 }
 
