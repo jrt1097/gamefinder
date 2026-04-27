@@ -14,6 +14,9 @@ const MESSAGES_TABLE = "GameFinderMessages";
 
 const GOOGLE_CLIENT_ID = "806474530135-eu9tcf85pn9t8k92c34uir3u6gvmoaka.apps.googleusercontent.com";
 
+// ✅ ADDED (chaos mode toggle)
+const CHAOS_MODE = process.env.CHAOS_MODE === "true";
+
 function response(statusCode, body) {
   return {
     statusCode,
@@ -110,6 +113,14 @@ exports.handler = async (event) => {
   try {
     const path = event.rawPath || event.path || "/";
     const method = event.requestContext?.http?.method || event.httpMethod || "GET";
+
+    // ✅ ADDED (chaos failure simulation)
+    if (CHAOS_MODE && path.includes("/events")) {
+      return response(503, {
+        message: "Chaos test active: simulated service failure",
+        explanation: "This simulates an availability zone or backend failure."
+      });
+    }
 
     if (method === "OPTIONS") {
       return response(204, {});
@@ -234,31 +245,31 @@ exports.handler = async (event) => {
     }
 
     if (method === "POST" && path.startsWith("/events/") && path.endsWith("/leave")) {
-  const user = await verifyGoogleToken(event);
+      const user = await verifyGoogleToken(event);
 
-  if (!user) {
-    return response(401, {
-      message: "Unauthorized: invalid or missing Google OIDC token"
-    });
-  }
+      if (!user) {
+        return response(401, {
+          message: "Unauthorized: invalid or missing Google OIDC token"
+        });
+      }
 
-  const id = path.split("/")[2];
+      const id = path.split("/")[2];
 
-  await client.send(new UpdateItemCommand({
-    TableName: EVENTS_TABLE,
-    Key: {
-      id: { N: id }
-    },
-    UpdateExpression: "DELETE joinedBy :user",
-    ExpressionAttributeValues: {
-      ":user": { SS: [user.email] }
+      await client.send(new UpdateItemCommand({
+        TableName: EVENTS_TABLE,
+        Key: {
+          id: { N: id }
+        },
+        UpdateExpression: "DELETE joinedBy :user",
+        ExpressionAttributeValues: {
+          ":user": { SS: [user.email] }
+        }
+      }));
+
+      return response(200, {
+        message: "Left event successfully"
+      });
     }
-  }));
-
-  return response(200, {
-    message: "Left event successfully"
-  });
-}
 
     if (method === "GET" && path.startsWith("/events/") && path.endsWith("/messages")) {
       const eventId = path.split("/")[2];

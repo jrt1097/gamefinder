@@ -321,56 +321,85 @@ function viewEvent(id) {
 }
 
 async function loadEvents() {
-  const res = await fetch(`${API_URL}/events`);
-  const events = await res.json();
-
-  const search = document.getElementById("searchInput").value.toLowerCase();
-  const category = document.getElementById("categorySelect").value;
-  const maxDistance = Number(document.getElementById("distanceSelect").value);
-
   const container = document.getElementById("events");
-  container.innerHTML = "";
+  container.innerHTML = "<p>Loading events...</p>";
 
-  events.forEach(event => {
+  try {
+    const res = await fetch(`${API_URL}/events`);
 
-    let distanceText = "Enable location";
-
-    if (userLatitude && event.latitude) {
-      const dist = calculateDistance(
-        userLatitude,
-        userLongitude,
-        event.latitude,
-        event.longitude
-      );
-
-      if (dist > maxDistance) return;
-
-      distanceText = dist.toFixed(1) + " miles away";
+    if (!res.ok) {
+      container.innerHTML = `
+        <div class="box">
+          <h2>Events temporarily unavailable</h2>
+          <p>The frontend is still available through CloudFront, but the backend API is currently failing.</p>
+          <p>This demonstrates graceful degradation during a simulated reliability test.</p>
+        </div>
+      `;
+      return;
     }
 
-    if (
-      !event.title.toLowerCase().includes(search) &&
-      !event.location.toLowerCase().includes(search)
-    ) return;
+    const events = await res.json();
 
-    if (category !== "All" && event.category !== category) return;
+    const search = document.getElementById("searchInput").value.toLowerCase();
+    const category = document.getElementById("categorySelect").value;
+    const maxDistance = Number(document.getElementById("distanceSelect").value);
 
-    container.innerHTML += `
-      <div class="event-card">
-        <span class="category">${event.category}</span>
-        <h2>${event.title}</h2>
-        <p><strong>Location:</strong> ${event.location}</p>
-        <p><strong>Distance:</strong> ${distanceText}</p>
-        <p><strong>Date:</strong> ${event.date}</p>
-        <p><strong>Time:</strong> ${event.time}</p>
-        <p>${event.description}</p>
+    container.innerHTML = "";
 
-        <button onclick="joinEvent(${event.id})">Join Event</button>
-        <button onclick="leaveEvent(${event.id})">Leave Event</button>
-        <button onclick="viewEvent(${event.id})">View Event</button>
+    events.forEach(event => {
+
+      let distanceText = "Enable location";
+
+      if (userLatitude && event.latitude) {
+        const dist = calculateDistance(
+          userLatitude,
+          userLongitude,
+          event.latitude,
+          event.longitude
+        );
+
+        if (dist > maxDistance) return;
+
+        distanceText = dist.toFixed(1) + " miles away";
+      }
+
+      if (
+        !(event.title || "").toLowerCase().includes(search) &&
+        !(event.location || "").toLowerCase().includes(search)
+      ) return;
+
+      if (category !== "All" && event.category !== category) return;
+
+      container.innerHTML += `
+        <div class="event-card">
+          <span class="category">${event.category}</span>
+          <h2>${event.title}</h2>
+          <p><strong>Location:</strong> ${event.location}</p>
+          <p><strong>Distance:</strong> ${distanceText}</p>
+          <p><strong>Date:</strong> ${event.date}</p>
+          <p><strong>Time:</strong> ${event.time}</p>
+          <p>${event.description}</p>
+
+          <button onclick="joinEvent(${event.id})">Join Event</button>
+          <button onclick="leaveEvent(${event.id})">Leave Event</button>
+          <button onclick="viewEvent(${event.id})">View Event</button>
+        </div>
+      `;
+    });
+
+    if (container.innerHTML === "") {
+      container.innerHTML = "<p>No events found.</p>";
+    }
+
+  } catch (error) {
+    container.innerHTML = `
+      <div class="box">
+        <h2>Backend unavailable</h2>
+        <p>The page still loaded from CloudFront, but the API could not be reached.</p>
+        <p>This is a graceful failure instead of a full app crash.</p>
       </div>
     `;
-  });
+  }
 }
 
 async function joinEvent(id) {
