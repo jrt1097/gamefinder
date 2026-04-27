@@ -3,12 +3,14 @@ const {
   ScanCommand,
   GetItemCommand,
   PutItemCommand,
-  UpdateItemCommand
+  UpdateItemCommand,
+  QueryCommand
 } = require("@aws-sdk/client-dynamodb");
 
 const client = new DynamoDBClient({ region: "us-east-1" });
 
-const TABLE_NAME = "GameFinderEvents";
+const EVENTS_TABLE = "GameFinderEvents";
+const MESSAGES_TABLE = "GameFinderMessages";
 const GOOGLE_CLIENT_ID = "806474530135-eu9tcf85pn9t8k92c34uir3u6gvmoaka.apps.googleusercontent.com";
 
 function response(statusCode, body) {
@@ -36,6 +38,15 @@ function formatEvent(item) {
     longitude: item.longitude ? Number(item.longitude.N) : null,
     createdBy: item.createdBy?.S || "",
     joinedBy: item.joinedBy?.SS || []
+  };
+}
+
+function formatMessage(item) {
+  return {
+    eventId: item.eventId.S,
+    createdAt: Number(item.createdAt.N),
+    userEmail: item.userEmail.S,
+    message: item.message.S
   };
 }
 
@@ -102,21 +113,41 @@ exports.handler = async (event) => {
     return response(204, {});
   }
 
+  // GET all events
   if (method === "GET" && path === "/events") {
     const data = await client.send(new ScanCommand({
-      TableName: TABLE_NAME
+      TableName: EVENTS_TABLE
     }));
 
-    const events = data.Items.map(formatEvent);
-
-    return response(200, events);
+    return response(200, data.Items.map(formatEvent));
   }
 
-  if (method === "GET" && path.startsWith("/events/")) {
+  // GET event messages
+  if (method === "GET" && path.startsWith("/events/") && path.endsWith("/messages")) {
+    const eventId = path.split("/")[2];
+
+    const data = await client.send(new QueryCommand({
+      TableName: MESSAGES_TABLE,
+      KeyConditionExpression: "eventId = :eventId",
+      ExpressionAttributeValues: {
+        ":eventId": { S: eventId }
+      },
+      ScanIndexForward: true
+    }));
+
+    return response(200, data.Items.map(formatMessage));
+  }
+
+  // GET single event
+  if (
+    method === "GET" &&
+    path.startsWith("/events/") &&
+    !path.endsWith("/messages")
+  ) {
     const id = path.split("/")[2];
 
     const data = await client.send(new GetItemCommand({
-      TableName: TABLE_NAME,
+      TableName: EVENTS_TABLE,
       Key: {
         id: { N: id }
       }
@@ -129,6 +160,7 @@ exports.handler = async (event) => {
     return response(200, formatEvent(data.Item));
   }
 
+  // CREATE event
   if (method === "POST" && path === "/events") {
     const user = await verifyGoogleToken(event);
 
@@ -167,7 +199,7 @@ exports.handler = async (event) => {
     const id = Date.now();
 
     await client.send(new PutItemCommand({
-      TableName: TABLE_NAME,
+      TableName: EVENTS_TABLE,
       Item: {
         id: { N: String(id) },
         title: { S: body.title },
@@ -187,11 +219,13 @@ exports.handler = async (event) => {
 
     return response(201, {
       message: "Event created successfully",
+      eventId: id,
       latitude: coordinates.latitude,
       longitude: coordinates.longitude
     });
   }
 
+  // JOIN event
   if (method === "POST" && path.startsWith("/events/") && path.endsWith("/join")) {
     const user = await verifyGoogleToken(event);
 
@@ -204,7 +238,7 @@ exports.handler = async (event) => {
     const id = path.split("/")[2];
 
     await client.send(new UpdateItemCommand({
-      TableName: TABLE_NAME,
+      TableName: EVENTS_TABLE,
       Key: {
         id: { N: id }
       },
@@ -219,7 +253,71 @@ exports.handler = async (event) => {
     });
   }
 
+  // LEAVE event
+  if (method === "POST" && path.startsWith("/events/") && path.endsWith("/leave")) {
+    const user = await verifyGoogleToken(event);
+
+    if (!user) {
+      return response(401, {
+        message: "Unauthorized: invalid or missing Google OIDC token"
+      });
+    }
+
+    const id = path.split("/")[2];
+
+    await client.send(new UpdateItemCommand({
+      TableName: EVENTS_TABLE,
+      Key: {
+        id: { N: id }
+      },
+      UpdateExpression: "DELETE joinedBy :user",
+      ExpressionAttributeValues: {
+        ":user": { SS: [user.email] }
+      }
+    }));
+
+    return response(200, {
+      message: "Left event successfully"
+    });
+  }
+
+  // POST chat message
+  if (method === "POST" && path.startsWith("/events/") && path.endsWith("/messages")) {
+    const user = await verifyGoogleToken(event);
+
+    if (!user) {
+      return response(401, {
+        message: "Unauthorized: invalid or missing Google OIDC token"
+      });
+    }
+
+    const eventId = path.split("/")[2];
+    const body = JSON.parse(event.body || "{}");
+
+    if (!body.message || body.message.trim() === "") {
+      return response(400, {
+        message: "Message cannot be empty"
+      });
+    }
+
+    const createdAt = Date.now();
+
+    await client.send(new PutItemCommand({
+      TableName: MESSAGES_TABLE,
+      Item: {
+        eventId: { S: eventId },
+        createdAt: { N: String(createdAt) },
+        userEmail: { S: user.email },
+        message: { S: body.message.trim() }
+      }
+    }));
+
+    return response(201, {
+      message: "Message sent"
+    });
+  }
+
   return response(200, {
-    message: "GameFinder secure DynamoDB API with Google Geocoding running"
+    message: "GameFinder secure DynamoDB API running"
   });
 };
