@@ -47,7 +47,7 @@ function formatEvent(item) {
 
 function formatMessage(item) {
   return {
-    eventId: item.eventId?.S || "",
+    eventId: item.eventID?.S || "",
     createdAt: item.createdAt ? Number(item.createdAt.N) : null,
     userEmail: item.userEmail?.S || "",
     message: item.message?.S || ""
@@ -114,11 +114,9 @@ exports.handler = async (event) => {
     const path = event.rawPath || event.path || "/";
     const method = event.requestContext?.http?.method || event.httpMethod || "GET";
 
-    // ✅ ADDED (chaos failure simulation)
     if (CHAOS_MODE && path.includes("/events")) {
       return response(503, {
         message: "Chaos test active: simulated service failure",
-        explanation: "This simulates an availability zone or backend failure."
       });
     }
 
