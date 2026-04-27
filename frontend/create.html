@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GameFinder - Create Event</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: #eef2f7;
+    margin: 0;
+    color: #111827;
+  }
+
+  header {
+    background: linear-gradient(135deg, #111827, #1e3a8a);
+    color: white;
+    padding: 45px 20px;
+    text-align: center;
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 42px;
+  }
+
+  header p {
+    margin-top: 10px;
+    font-size: 18px;
+    color: #dbeafe;
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 30px auto;
+    padding: 20px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .box,
+  .event-card {
+    background: white;
+    padding: 24px;
+    margin-bottom: 18px;
+    border-radius: 16px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e5e7eb;
+  }
+
+  .event-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .event-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  }
+
+  input,
+  select,
+  textarea {
+    padding: 12px;
+    font-size: 15px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    outline: none;
+    background: white;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 90px;
+    resize: vertical;
+  }
+
+  button {
+    padding: 12px 16px;
+    font-size: 15px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 10px;
+    font-weight: bold;
+  }
+
+  button:hover {
+    background: #1d4ed8;
+  }
+
+  .controls button {
+    background: #111827;
+  }
+
+  .controls button:hover {
+    background: #374151;
+  }
+
+  .category {
+    display: inline-block;
+    background: #dbeafe;
+    color: #1e40af;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: bold;
+  }
+
+  .event-card h2 {
+    margin-top: 12px;
+    margin-bottom: 12px;
+    font-size: 26px;
+  }
+
+  .event-card p {
+    line-height: 1.5;
+  }
+
+  .status {
+    font-weight: bold;
+    color: #1f2937;
+  }
+
+  .create-form {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  #events,
+  #joinedEvents {
+    margin-top: 20px;
+  }
+
+  .message {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    padding: 14px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .message p {
+    margin: 5px 0;
+  }
+
+  small {
+    color: #64748b;
+  }
+
+  @media (max-width: 700px) {
+    header h1 {
+      font-size: 32px;
+    }
+
+    .create-form {
+      grid-template-columns: 1fr;
+    }
+
+    .controls {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    button,
+    input,
+    select {
+      width: 100%;
+    }
+  }
+</style>
+</head>
+
+<body>
+  <header>
+    <h1>Create Event</h1>
+    <p>Create a new local event. Google Geocoding will automatically add coordinates.</p>
+  </header>
+
+  <main>
+    <div class="controls">
+      <button onclick="goTo('index.html')">All Events</button>
+      <button onclick="goTo('joined.html')">My Joined Events</button>
+      <button onclick="goTo('create.html')">Create Event</button>
+    </div>
+
+    <div class="box">
+      <h2>Login</h2>
+
+      <div id="g_id_onload"
+           data-client_id="806474530135-eu9tcf85pn9t8k92c34uir3u6gvmoaka.apps.googleusercontent.com"
+           data-callback="handleCredentialResponse">
+      </div>
+
+      <div class="g_id_signin"
+           data-type="standard"
+           data-size="large"
+           data-theme="outline"
+           data-text="sign_in_with"
+           data-shape="rectangular">
+      </div>
+
+      <p id="userStatus" class="status">Not signed in</p>
+      <button onclick="logout()">Logout</button>
+    </div>
+
+    <div class="box">
+      <h2>Create Event</h2>
+
+      <div class="create-form">
+        <input id="newTitle" type="text" placeholder="Event title" required>
+
+        <select id="newCategory" required>
+          <option value="Gaming">Gaming</option>
+          <option value="Sports">Sports</option>
+          <option value="Community">Community</option>
+        </select>
+
+        <input id="newCity" type="text" placeholder="City" required>
+        <input id="newState" type="text" placeholder="State" required>
+        <input id="newDate" type="date" required>
+        <input id="newTime" type="text" placeholder="Time, ex: 6:00 PM" required>
+      </div>
+
+      <textarea id="newDescription" placeholder="Description" required></textarea>
+      <br><br>
+
+      <button onclick="createNewEvent()">Create Event</button>
+      <p id="createStatus"></p>
+    </div>
+  </main>
+
+  <script>
+    const API_URL = "https://nou2ovsqehcyxf5i2ztoecwqxy0ydeir.lambda-url.us-east-1.on.aws";
+
+    let idToken = localStorage.getItem("gamefinder_token");
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (idToken) {
+        document.getElementById("userStatus").innerText = "Signed in with Google";
+      }
+    });
+
+    function goTo(page) {
+      window.location.href = page;
+    }
+
+    function handleCredentialResponse(response) {
+      idToken = response.credential;
+      localStorage.setItem("gamefinder_token", idToken);
+      document.getElementById("userStatus").innerText = "Signed in with Google";
+    }
+
+    function logout() {
+      idToken = null;
+      localStorage.removeItem("gamefinder_token");
+      document.getElementById("userStatus").innerText = "Not signed in";
+    }
+
+    async function createNewEvent() {
+      if (!idToken) {
+        document.getElementById("createStatus").innerText = "Please sign in first.";
+        return;
+      }
+
+      const newEvent = {
+        title: document.getElementById("newTitle").value.trim(),
+        category: document.getElementById("newCategory").value,
+        city: document.getElementById("newCity").value.trim(),
+        state: document.getElementById("newState").value.trim(),
+        date: document.getElementById("newDate").value,
+        time: document.getElementById("newTime").value.trim(),
+        description: document.getElementById("newDescription").value.trim()
+      };
+
+      if (
+        !newEvent.title ||
+        !newEvent.category ||
+        !newEvent.city ||
+        !newEvent.state ||
+        !newEvent.date ||
+        !newEvent.time ||
+        !newEvent.description
+      ) {
+        document.getElementById("createStatus").innerText =
+          "Please fill out all fields before creating an event.";
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/events`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${idToken}`
+          },
+          body: JSON.stringify(newEvent)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          document.getElementById("createStatus").innerText =
+            result.message || "Could not create event.";
+          return;
+        }
+
+        document.getElementById("createStatus").innerText =
+          "Event created successfully. Coordinates were added automatically.";
+
+        document.getElementById("newTitle").value = "";
+        document.getElementById("newCity").value = "";
+        document.getElementById("newState").value = "";
+        document.getElementById("newDate").value = "";
+        document.getElementById("newTime").value = "";
+        document.getElementById("newDescription").value = "";
+
+      } catch (error) {
+        document.getElementById("createStatus").innerText =
+          "Could not create event: " + error.message;
+      }
+    }
+  </script>
+</body>
+</html>
